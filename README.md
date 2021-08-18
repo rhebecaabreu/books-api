@@ -1,7 +1,7 @@
-### Simple Go Lang API - Books CRUD
+## Simple Go Lang API - Books CRUD
 
 
-## Technologies 
+### Technologies 
 
 - GoLang
 - Gin
@@ -9,7 +9,7 @@
 - MySQL
 - Docker
 
-# Running the project
+### Running the project
 
 Make sure you have docker installed.
 
