@@ -1,6 +1,14 @@
 ### Simple Go Lang API - Books CRUD
 
-- Go Lang
+
+## Technologies 
+
+- GoLang
 - Gin
 - Gorm 
 - MySQL
+- Docker
+
+# Development
+
+Run `docker-compose up --build` to start containers 
