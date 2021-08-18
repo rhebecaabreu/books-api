@@ -1,94 +1,98 @@
 package controllers
 
 import (
+	"books-api/dto"
+	"books-api/entity"
+	"books-api/helpers"
+	"books-api/services"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rahmanfadhil/gin-bookstore/models"
 )
 
-type CreateBookInput struct {
-	Title  string `json:"title" binding:"required"`
-	Author string `json:"author" binding:"required"`
+type BookController interface {
+	All(context *gin.Context)
+	FindByID(context *gin.Context)
+	Insert(context *gin.Context)
+	Update(context *gin.Context)
+	Delete(context *gin.Context)
 }
 
-type UpdateBookInput struct {
-	Title  string `json:"title"`
-	Author string `json:"author"`
+type bookController struct {
+	bookService services.BookService
 }
 
-// GET /books
-// Find all books
-func FindBooks(c *gin.Context) {
-	var books []models.Book
-	models.DB.Find(&books)
-
-	c.JSON(http.StatusOK, gin.H{"data": books})
+func NewBookController(bookServ services.BookService) BookController {
+	return &bookController{
+		bookService: bookServ,
+	}
 }
 
-// GET /books/:id
-// Find a book
-func FindBook(c *gin.Context) {
-	// Get model if exist
-	var book models.Book
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&book).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
+func (c *bookController) All(context *gin.Context) {
+	var books []entity.Book = c.bookService.All()
+	res := helpers.BuildResponse(true, "OK", books)
+	context.JSON(http.StatusOK, res)
+}
+
+func (c *bookController) FindByID(context *gin.Context) {
+	id, err := strconv.ParseUint(context.Param("id"), 0, 0)
+	if err != nil {
+		res := helpers.BuildErrorResponse("No param id was found", err.Error(), helpers.EmptyObj{})
+		context.AbortWithStatusJSON(http.StatusBadRequest, res)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": book})
+	var book entity.Book = c.bookService.FindByID(id)
+	if (book == entity.Book{}) {
+		res := helpers.BuildErrorResponse("Data not found", "No data with given id", helpers.EmptyObj{})
+		context.JSON(http.StatusNotFound, res)
+	} else {
+		res := helpers.BuildResponse(true, "OK", book)
+		context.JSON(http.StatusOK, res)
+	}
 }
 
-// POST /books
-// Create new book
-func CreateBook(c *gin.Context) {
-	// Validate input
-	var input CreateBookInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+func (c *bookController) Insert(context *gin.Context) {
+	var bookCreateDTO dto.BookCreateDTO
+	errDTO := context.ShouldBind(&bookCreateDTO)
+	if errDTO != nil {
+		res := helpers.BuildErrorResponse("Failed to process request", errDTO.Error(), helpers.EmptyObj{})
+		context.JSON(http.StatusBadRequest, res)
+	} else {
+
+		result := c.bookService.Insert(bookCreateDTO)
+		response := helpers.BuildResponse(true, "OK", result)
+		context.JSON(http.StatusCreated, response)
 	}
-
-	// Create book
-	book := models.Book{Title: input.Title, Author: input.Author}
-	models.DB.Create(&book)
-
-	c.JSON(http.StatusOK, gin.H{"data": book})
 }
 
-// PATCH /books/:id
-// Update a book
-func UpdateBook(c *gin.Context) {
-	// Get model if exist
-	var book models.Book
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&book).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
+func (c *bookController) Update(context *gin.Context) {
+	var bookUpdateDTO dto.BookUpdateDTO
+	errDTO := context.ShouldBind(&bookUpdateDTO)
+	if errDTO != nil {
+		res := helpers.BuildErrorResponse("Failed to process request", errDTO.Error(), helpers.EmptyObj{})
+		context.JSON(http.StatusBadRequest, res)
 		return
 	}
 
-	// Validate input
-	var input UpdateBookInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+	response := helpers.BuildErrorResponse("You dont have permission", "You are not the owner", helpers.EmptyObj{})
+	context.JSON(http.StatusForbidden, response)
 
-	models.DB.Model(&book).Updates(input)
-
-	c.JSON(http.StatusOK, gin.H{"data": book})
 }
 
-// DELETE /books/:id
-// Delete a book
-func DeleteBook(c *gin.Context) {
-	// Get model if exist
-	var book models.Book
-	if err := models.DB.Where("id = ?", c.Param("id")).First(&book).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Record not found!"})
-		return
+func (c *bookController) Delete(context *gin.Context) {
+	var book entity.Book
+	// id, err := strconv.ParseUint(context.Param("id"), 10, 32)
+	id, err := strconv.Atoi(context.Param("id"))
+	// id, err := uint(context.Param("id"))
+	if err != nil {
+		response := helpers.BuildErrorResponse("Failed tou get id", "No param id were found", helpers.EmptyObj{})
+		context.JSON(http.StatusBadRequest, response)
 	}
+	book.ID = uint(id)
 
-	models.DB.Delete(&book)
-
-	c.JSON(http.StatusOK, gin.H{"data": true})
+	c.bookService.Delete(book)
+	res := helpers.BuildResponse(true, "Deleted", helpers.EmptyObj{})
+	context.JSON(http.StatusOK, res)
 }

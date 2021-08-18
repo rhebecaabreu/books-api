@@ -1,25 +1,39 @@
 package main
 
 import (
-	"github.com/rahmanfadhil/gin-bookstore/controllers"
-	"github.com/rahmanfadhil/gin-bookstore/models"
+	"books-api/config"
+	"books-api/controllers"
+	"books-api/repository"
+	"books-api/services"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	r := gin.Default()
 
-	// Connect to database
-	models.ConnectDatabase()
+	errEnv := godotenv.Load()
+	if errEnv != nil {
+		panic("Failed to load env file")
+	}
 
-	// Routes
-	r.GET("/books", controllers.FindBooks)
-	r.GET("/books/:id", controllers.FindBook)
-	r.POST("/books", controllers.CreateBook)
-	r.PATCH("/books/:id", controllers.UpdateBook)
-	r.DELETE("/books/:id", controllers.DeleteBook)
+	db := config.InitializeDatabase(os.Getenv("DB_DRIVER"), os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"), os.Getenv("DB_PORT"), os.Getenv("DB_HOST"), os.Getenv("DB_NAME"))
+	bookRepository := repository.NewBookRepository(db)
+	bookService := services.NewBookService(bookRepository)
+	bookController := controllers.NewBookController(bookService)
 
-	// Run the server
-	r.Run()
+	routes := gin.Default()
+
+	bookRoutes := routes.Group("api/books")
+	{
+		bookRoutes.GET("/", bookController.All)
+		bookRoutes.GET("/:id", bookController.FindByID)
+		bookRoutes.POST("/", bookController.Insert)
+		bookRoutes.PUT("/:id", bookController.Update)
+		bookRoutes.DELETE("/:id", bookController.Delete)
+	}
+	// router := routes.InitRouter()
+
+	routes.Run()
 }
